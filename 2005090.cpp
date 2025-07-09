@@ -84,8 +84,8 @@ double nearPlane = 1.0;
 double farPlane = 1000.0;
 
 // Window dimensions
-int windowWidth = 640;
-int windowHeight = 640;
+int windowWidth = 1920;
+int windowHeight = 1080;
 double worldWidth = 2.0;
 double worldHeight = 2.0;
 
