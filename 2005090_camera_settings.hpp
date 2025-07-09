@@ -1,36 +1,18 @@
 /**
- * Ray Tracing Assignment - Complete Implementation
- * 
- * A unified ray tracing application with OpenGL visualization.
- * Features:
- * - Scene loading from file with support for spheres, triangles, quadrics
- * - Real-time camera movement and controls
- * - Ray tracing with Phong illumination, shadows, and reflections
- * - Texture mapping for floors with toggle functionality
- * - Integrated camera system with comprehensive movement controls
- * - OpenGL visualization of objects and lights
- * 
- * Controls:
- * - Arrow keys: Move forward/back/left/right
- * - Page Up/Down: Move up/down
- * - 1/2: Rotate look-at point left/right
- * - 3/4: Rotate camera up/down
- * - 5/6: Tilt camera
- * - w/s: Move camera up/down
- * - 0: Capture ray-traced image
- * - t/T: Toggle floor texture (checkerboard/texture)
- * - a: Toggle coordinate axes
- * - ESC: Exit
+ * OpenGL 3D Camera Movement Demo
+ *
+ * This program demonstrates basic camera movement with OpenGL and GLUT including:
+ * - Camera positioning with gluLookAt
+ * - Keyboard navigation for camera control
+ * - Perspective projection
+ * - Coordinate axes display
  */
 
-#include <iostream>
-#include <vector>
-#include <string>
-#include <fstream>
-#include <limits>
+// --- Includes ---
+// Standard Headers
+#include <stdio.h>
+#include <stdlib.h>
 #include <cmath>
-#include "bitmap_image.hpp"
-#include "2005090.hpp" // Object and ray tracing class definitions
 
 // OpenGL / GLUT Headers
 #ifdef __APPLE__
@@ -39,34 +21,8 @@
 #include <GL/glut.h> // Use standard GLUT location on Linux/Windows
 #endif
 
-#define M_PI 3.14159265358979323846
-
-/*
- * TEXTURE MAPPING FEATURE:
- * - Press 't' or 'T' to toggle between checkerboard and texture modes for the floor
- * - The system loads "sample_texture.bmp" by default
- * - To use different textures, call switchTexture("filename.bmp") 
- * - Supports common image formats (BMP, PNG, JPG, TGA, etc.)
- * - Texture coordinates are automatically mapped from world coordinates
- * - Falls back to checkerboard pattern if texture loading fails
- */
-
-// Global variables
-std::vector<Object *> objects;
-std::vector<PointLight *> pointLights;
-std::vector<SpotLight *> spotLights;
-
-// Recursion level for reflections
-int maxRecursionLevel = 3;
-
-// TextureManager static members
-unsigned char* TextureManager::textureData = nullptr;
-int TextureManager::textureWidth = 0;
-int TextureManager::textureHeight = 0;
-int TextureManager::textureChannels = 0;
-bool TextureManager::textureLoaded = false;
-
-// Camera position and orientation variables
+// --- Global Variables ---
+/// @brief Camera position and orientation
 GLfloat eyex = 100, eyey = -150, eyez = 60;    // Camera position coordinates - positioned for good scene overview
 GLfloat centerx = 20, centery = 20, centerz = 20; // Look-at point coordinates - looking towards scene center
 GLfloat upx = 0, upy = 0, upz = 1;             // Up vector coordinates - Z is up
@@ -77,17 +33,13 @@ float rotationSpeed = 0.05f; // Speed of camera rotation - slightly decreased fo
 // Object visibility flags
 bool isAxes = true; // Toggle for coordinate axes
 
-// Camera parameters
-double fovY = 45.0;  // Better field of view for scene overview
-double aspectRatio = 1.0;
-double nearPlane = 1.0;
-double farPlane = 1000.0;
-
-// Window dimensions
-int windowWidth = 640;
-int windowHeight = 640;
-double worldWidth = 2.0;
-double worldHeight = 2.0;
+// --- Function Declarations ---
+void initGL();
+void display();
+void reshapeListener(GLsizei width, GLsizei height);
+void keyboardListener(unsigned char key, int x, int y);
+void specialKeyListener(int key, int x, int y);
+void drawAxes();
 
 /**
  * Initialize OpenGL settings
@@ -102,398 +54,18 @@ void initGL()
     // Set up projection matrix
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0f, static_cast<double>(windowWidth) / windowHeight, 0.1f, 1000.0f);
-}
-
-// Scene loading function
-void loadScene()
-{
-    std::ifstream file("scene.txt");
-    if (!file.is_open())
-    {
-        std::cerr << "Error: Could not open scene.txt file!" << std::endl;
-        return;
-    }
-
-    int recursionLevel, imageSize;
-    file >> recursionLevel >> imageSize;
-    
-    // Set global recursion level
-    maxRecursionLevel = recursionLevel;
-    
-    std::cout << "Loading scene..." << std::endl;
-    std::cout << "Recursion Level: " << recursionLevel << std::endl;
-    std::cout << "Image Size: " << imageSize << std::endl;
-
-    // Update global parameters based on scene file
-    windowWidth = windowHeight = imageSize;
-    worldWidth = 200.0;   // Increase world dimensions to match scene scale
-    worldHeight = 200.0;
-
-    int numObjects;
-    file >> numObjects;
-    std::cout << "Number of objects to load: " << numObjects << std::endl;
-
-    // Clear existing objects
-    for (Object *obj : objects)
-        delete obj;
-    objects.clear();
-
-    // Load objects
-    for (int i = 0; i < numObjects; i++)
-    {
-        std::string objectType;
-        file >> objectType;
-
-        if (objectType == "sphere")
-        {
-            double centerX, centerY, centerZ, radius;
-            double colorR, colorG, colorB;
-            double ambient, diffuse, specular, reflection;
-            int shininess;
-
-            file >> centerX >> centerY >> centerZ;
-            file >> radius;
-            file >> colorR >> colorG >> colorB;
-            file >> ambient >> diffuse >> specular >> reflection;
-            file >> shininess;
-
-            Sphere *sphere = new Sphere(Vector3D(centerX, centerY, centerZ), radius);
-            sphere->setColor(colorR, colorG, colorB);
-            sphere->setCoefficients(ambient, diffuse, specular, reflection);
-            sphere->setShine(shininess);
-            objects.push_back(sphere);
-            
-            std::cout << "Loaded sphere at (" << centerX << ", " << centerY << ", " << centerZ 
-                      << ") with radius " << radius << std::endl;
-        }
-        else if (objectType == "triangle")
-        {
-            double x1, y1, z1, x2, y2, z2, x3, y3, z3;
-            double colorR, colorG, colorB;
-            double ambient, diffuse, specular, reflection;
-            int shininess;
-
-            file >> x1 >> y1 >> z1;
-            file >> x2 >> y2 >> z2;
-            file >> x3 >> y3 >> z3;
-            file >> colorR >> colorG >> colorB;
-            file >> ambient >> diffuse >> specular >> reflection;
-            file >> shininess;
-
-            Triangle *triangle = new Triangle(Vector3D(x1, y1, z1), 
-                                            Vector3D(x2, y2, z2), 
-                                            Vector3D(x3, y3, z3));
-            triangle->setColor(colorR, colorG, colorB);
-            triangle->setCoefficients(ambient, diffuse, specular, reflection);
-            triangle->setShine(shininess);
-            objects.push_back(triangle);
-            
-            std::cout << "Loaded triangle with vertices (" << x1 << "," << y1 << "," << z1 
-                      << "), (" << x2 << "," << y2 << "," << z2 
-                      << "), (" << x3 << "," << y3 << "," << z3 << ")" << std::endl;
-        }
-        else if (objectType == "general")
-        {
-            double A, B, C, D, E, F, G, H, I, J;
-            double refX, refY, refZ, length, width, height;
-            double colorR, colorG, colorB;
-            double ambient, diffuse, specular, reflection;
-            int shininess;
-
-            file >> A >> B >> C >> D >> E >> F >> G >> H >> I >> J;
-            file >> refX >> refY >> refZ >> length >> width >> height;
-            file >> colorR >> colorG >> colorB;
-            file >> ambient >> diffuse >> specular >> reflection;
-            file >> shininess;
-
-            GeneralQuadric *quadric = new GeneralQuadric(A, B, C, D, E, F, G, H, I, J);
-            quadric->reference_point = Vector3D(refX, refY, refZ);
-            quadric->length = length;
-            quadric->width = width;
-            quadric->height = height;
-            quadric->setColor(colorR, colorG, colorB);
-            quadric->setCoefficients(ambient, diffuse, specular, reflection);
-            quadric->setShine(shininess);
-            objects.push_back(quadric);
-            
-            std::cout << "Loaded general quadric at (" << refX << "," << refY << "," << refZ 
-                      << ") with dimensions " << length << "x" << width << "x" << height << std::endl;
-        }
-    }
-
-    // Add floor (as mentioned in the scene description)
-    Floor *floor = new Floor(1000, 20, false); // Start with checkerboard mode
-    objects.push_back(floor);
-    
-    std::cout << "Floor created with checkerboard pattern. Use 't' key to toggle texture mode." << std::endl;
-
-    // Load point lights
-    int numPointLights;
-    file >> numPointLights;
-
-    // Clear existing lights
-    for (PointLight *light : pointLights)
-        delete light;
-    pointLights.clear();
-
-    for (int i = 0; i < numPointLights; i++)
-    {
-        double x, y, z;
-        double r, g, b;
-        file >> x >> y >> z;
-        file >> r >> g >> b;
-
-        PointLight *light = new PointLight(Vector3D(x, y, z), r, g, b);
-        pointLights.push_back(light);
-        
-        std::cout << "Loaded point light at (" << x << ", " << y << ", " << z 
-                  << ") with color (" << r << ", " << g << ", " << b << ")" << std::endl;
-    }
-
-    // Load spot lights
-    int numSpotLights;
-    file >> numSpotLights;
-
-    // Clear existing spot lights
-    for (SpotLight *light : spotLights)
-        delete light;
-    spotLights.clear();
-
-    for (int i = 0; i < numSpotLights; i++)
-    {
-        double posX, posY, posZ;
-        double colorR, colorG, colorB;
-        double dirX, dirY, dirZ;
-        double cutoffAngle;
-
-        file >> posX >> posY >> posZ;
-        file >> colorR >> colorG >> colorB;
-        file >> dirX >> dirY >> dirZ;
-        file >> cutoffAngle;
-
-        SpotLight *spotlight = new SpotLight(Vector3D(posX, posY, posZ),
-                                           Vector3D(dirX, dirY, dirZ),
-                                           cutoffAngle,
-                                           colorR, colorG, colorB);
-        spotLights.push_back(spotlight);
-        
-        std::cout << "Loaded spotlight at (" << posX << ", " << posY << ", " << posZ 
-                  << ") pointing (" << dirX << ", " << dirY << ", " << dirZ 
-                  << ") with cutoff " << cutoffAngle << std::endl;
-    }
-
-    file.close();
-}
-
-// Utility function to switch textures easily
-void switchTexture(const char* filename)
-{
-    if (TextureManager::loadTexture(filename)) {
-        std::cout << "Switched to texture: " << filename << std::endl;
-        // Enable texture mode on all floors
-        for (Object *obj : objects) {
-            Floor *floor = dynamic_cast<Floor*>(obj);
-            if (floor) {
-                floor->setTextureMode(true);
-            }
-        }
-    } else {
-        std::cout << "Failed to load texture: " << filename << std::endl;
-    }
-}
-
-void capture()
-{
-    static int captureCount = 11;
-    const int imageWidth = windowWidth;  // Use actual window dimensions
-    const int imageHeight = windowHeight;
-    
-    // Initialize bitmap image and set background color
-    bitmap_image image(imageWidth, imageHeight);
-    
-    // Set a light background color instead of pure black
-    for (int i = 0; i < imageWidth; i++)
-    {
-        for (int j = 0; j < imageHeight; j++)
-        {
-            image.set_pixel(i, j, 50, 50, 80); // Dark blue background
-        }
-    }
-    
-    // Use camera variables from the header file
-    Vector3D eye(eyex, eyey, eyez);
-    Vector3D lookAt(centerx, centery, centerz);
-    Vector3D up(upx, upy, upz);
-    
-    // Calculate view direction and orthonormal basis
-    Vector3D l = lookAt - eye;
-    l.normalize();
-    Vector3D r = l.cross(up);
-    r.normalize();
-    Vector3D u = r.cross(l);
-    
-    // Calculate plane distance based on field of view
-    double viewAngle = fovY * (M_PI / 180.0); // Convert to radians
-    double planeDistance = (windowHeight / 2.0) / tan(viewAngle / 2.0);
-    
-    // Calculate top-left corner of the image plane
-    Vector3D topLeft = eye + l * planeDistance - r * (windowWidth / 2.0) + u * (windowHeight / 2.0);
-    
-    // Calculate pixel step sizes
-    double du = (double)windowWidth / imageWidth;
-    double dv = (double)windowHeight / imageHeight;
-    
-    // Choose middle of the grid cell
-    topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv);
-    
-    std::cout << "Capturing image " << captureCount << "..." << std::endl;
-    
-    // Ray tracing loop
-    for (int i = 0; i < imageWidth; i++)
-    {
-        for (int j = 0; j < imageHeight; j++)
-        {
-            // Calculate current pixel position
-            Vector3D curPixel = topLeft + r * (i * du) - u * (j * dv);
-            
-            // Cast ray from eye to current pixel
-            Vector3D rayDirection = curPixel - eye;
-            Ray ray(eye, rayDirection);
-            
-            double tMin = std::numeric_limits<double>::max();
-            Object *nearestObject = nullptr;
-            double dummyColor[3] = {0, 0, 0};
-            
-            // Find nearest intersection
-            for (Object *obj : objects)
-            {
-                double t = obj->intersect(ray, dummyColor, 0);
-                if (t > 0 && t < tMin)
-                {
-                    tMin = t;
-                    nearestObject = obj;
-                }
-            }
-            
-            // Calculate final color
-            double *color = new double[3]{0.2, 0.2, 0.3}; // Default background color instead of pure black
-            if (nearestObject)
-            {
-                // Reset color for object intersection
-                color[0] = color[1] = color[2] = 0.0;
-                // Get actual color from the nearest object
-                double t_min = nearestObject->intersect(ray, color, 1);
-                
-                // Apply distance-based visibility (prevent objects from getting too dark when far)
-                double maxDistance = 500.0; // Maximum reasonable distance
-                double distanceFactor = 1.0 - std::min(tMin / maxDistance, 0.8); // Don't let it get darker than 20%
-                
-                // Ensure minimum visibility - add some ambient light if too dark
-                for (int k = 0; k < 3; k++)
-                {
-                    color[k] = std::max(color[k] * distanceFactor, 0.1); // Minimum brightness with distance factor
-                }
-            }
-            
-            // Clamp color values to [0, 1] range
-            for (int k = 0; k < 3; k++)
-            {
-                color[k] = std::min(1.0, std::max(0.0, color[k]));
-            }
-            
-            // Update image pixel (i,j)
-            image.set_pixel(i, j,
-                            static_cast<unsigned char>(color[0] * 255),
-                            static_cast<unsigned char>(color[1] * 255),
-                            static_cast<unsigned char>(color[2] * 255));
-            
-            delete[] color; // Clean up dynamic memory
-        }
-    }
-    
-    // Save image with naming convention: Output_11.bmp, Output_12.bmp, etc.
-    std::string filename = "Output_" + std::to_string(captureCount++) + ".bmp";
-    image.save_image(filename);
-    std::cout << "Image saved as " << filename << std::endl;
+    gluPerspective(45.0f, 1.0f, 0.1f, 100.0f);
 }
 
 /**
- * Draw coordinate axes
- * X axis: red, Y axis: green, Z axis: blue
+ * Main display function
+ * Sets up the camera and renders visible objects
  */
-void drawAxes()
-{
-    glLineWidth(3); // Set line thickness
-
-    glBegin(GL_LINES);
-
-    // X axis (red)
-    glColor3f(1, 0, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(1, 0, 0);
-
-    // Y axis (green)
-    glColor3f(0, 1, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 1, 0);
-
-    // Z axis (blue)
-    glColor3f(0, 0, 1);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 0, 1);
-
-    glEnd();
-}
-
-void display()
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    // Use camera variables from the header file
-    gluLookAt(eyex, eyey, eyez,
-              centerx, centery, centerz,
-              upx, upy, upz);
-
-    // Draw all objects
-    for (Object *obj : objects)
-    {
-        obj->draw();
-    }
-    // Draw coordinate axes if enabled
-    if (isAxes)
-    {
-        drawAxes();
-    }
 
 
-    // Draw all lights
-    for (PointLight *light : pointLights)
-    {
-        light->draw();
-    }
-
-    for (SpotLight *light : spotLights)
-    {
-        light->draw();
-    }
-
-    glutSwapBuffers();
-}
-
-void reshape(int width, int height)
-{
-    windowWidth = width;
-    windowHeight = height;
-    glViewport(0, 0, width, height);
-    aspectRatio = static_cast<double>(width) / height;
-    initGL();
-}
 
 /**
- * Window reshape callback from camera settings
+ * Window reshape callback
  * Handles window resizing and maintains aspect ratio
  */
 void reshapeListener(GLsizei width, GLsizei height)
@@ -513,66 +85,16 @@ void reshapeListener(GLsizei width, GLsizei height)
     glLoadIdentity();
 
     // 45-degree field of view, aspect ratio, near and far clipping planes
-    gluPerspective(45.0f, aspect, 0.1f, 1000.0f);
-}
-
-// Draw coordinate axes
-
-
-// Forward declaration
-void keyboardListener(unsigned char key, int x, int y);
-
-void keyboard(unsigned char key, int x, int y)
-{
-    // Handle capture, texture toggle, and exit here, then delegate to camera settings
-    switch (key)
-    {
-    case '0':
-        capture();
-        break;
-    case 't':
-    case 'T':
-        // Toggle texture mode for floor
-        for (Object *obj : objects) {
-            Floor *floor = dynamic_cast<Floor*>(obj);
-            if (floor) {
-                bool currentMode = floor->useTexture;
-                floor->setTextureMode(!currentMode);
-                std::cout << "Floor texture mode: " << (floor->useTexture ? "ON (texture)" : "OFF (checkerboard)") << std::endl;
-                if (floor->useTexture && !TextureManager::textureLoaded) {
-                    std::cout << "Warning: Texture mode enabled but no texture loaded!" << std::endl;
-                }
-                break; // Only toggle the first floor found
-            }
-        }
-        break;
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case 'w':
-    case 's':
-    case 'a':
-    case 27: // ESC
-        // Call the integrated camera keyboard handler
-        keyboardListener(key, x, y);
-        break;
-    default:
-        // For other keys, also call the keyboard handler
-        keyboardListener(key, x, y);
-        break;
-    }
-    glutPostRedisplay();
+    gluPerspective(45.0f, aspect, 0.1f, 100.0f);
 }
 
 /**
- * Keyboard input handler for standard keys from camera settings
+ * Keyboard input handler for standard keys
  * Manages camera position, object visibility, and program exit
  */
 void keyboardListener(unsigned char key, int x, int y)
 {
+
     // Calculate view direction vector
     double lx = centerx - eyex;
     double lz = centerz - eyez;
@@ -583,7 +105,7 @@ void keyboardListener(unsigned char key, int x, int y)
     case '1':
     {
         // Rotate look-at point around the camera position (left rotation)
-        double ROTATION_ANGLE = rotationSpeed; // Use consistent rotation speed
+        double ROTATION_ANGLE = 0.1; // Use a fixed reasonable rotation angle
         
         // we are getting the vector which originates from the camera position to the reference point
         double caX = centerx - eyex;
@@ -615,7 +137,7 @@ void keyboardListener(unsigned char key, int x, int y)
     case '2':
     {
         // Rotate look-at point around the camera position (right rotation)
-        double ROTATION_ANGLE = rotationSpeed; // Use consistent rotation speed
+        double ROTATION_ANGLE = 0.1; // Use a fixed reasonable rotation angle
         
         // we are getting the vector which originates from the camera position to the reference point
         double caX = centerx - eyex;
@@ -739,6 +261,7 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '5':
     {
+
         float TILT_ANGLE = rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
         // Calculate the view direction vector from the camera to the reference point
@@ -787,6 +310,7 @@ void keyboardListener(unsigned char key, int x, int y)
     }
     case '6':
     {
+
         float TILT_ANGLE = -rotationSpeed; // Positive for clockwise, negative for counter-clockwise
 
         // Calculate the view direction vector from the camera to the reference point
@@ -879,6 +403,7 @@ void keyboardListener(unsigned char key, int x, int y)
  */
 void specialKeyListener(int key, int x, int y)
 {
+
     // Calculate view direction vector
     double lx = centerx - eyex;
     double lz = centerz - eyez;
@@ -886,6 +411,7 @@ void specialKeyListener(int key, int x, int y)
 
     switch (key)
     {
+
     case GLUT_KEY_LEFT:
     {
         // Calculate the vector from the camera to the reference point
@@ -1038,56 +564,31 @@ void specialKeyListener(int key, int x, int y)
     glutPostRedisplay(); // Request a screen refresh
 }
 
-int main(int argc, char **argv)
+/**
+ * Draw coordinate axes
+ * X axis: red, Y axis: green, Z axis: blue
+ */
+void drawAxes()
 {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(windowWidth, windowHeight);
-    glutCreateWindow("3D Scene with Ray Tracing");
+    glLineWidth(3); // Set line thickness
 
-    initGL();
-    
-    // Print keyboard instructions
-    std::cout << "\n=== RAY TRACER CONTROLS ===" << std::endl;
-    std::cout << "Camera Movement:" << std::endl;
-    std::cout << "  Arrow keys: Move forward/back/left/right" << std::endl;
-    std::cout << "  Page Up/Down: Move up/down" << std::endl;
-    std::cout << "  1/2: Rotate look-at point left/right" << std::endl;
-    std::cout << "  3/4: Rotate camera up/down" << std::endl;
-    std::cout << "  5/6: Tilt camera" << std::endl;
-    std::cout << "  w/s: Move camera up/down" << std::endl;
-    std::cout << "Rendering:" << std::endl;
-    std::cout << "  0: Capture ray-traced image" << std::endl;
-    std::cout << "  t/T: Toggle floor texture (checkerboard/texture)" << std::endl;
-    std::cout << "  a: Toggle coordinate axes" << std::endl;
-    std::cout << "  ESC: Exit" << std::endl;
-    std::cout << "========================\n" << std::endl;
+    glBegin(GL_LINES);
 
-    // Load the scene from the file
-    loadScene();
-    
-    // Try to load texture (optional)
-    if (TextureManager::loadTexture("sample_texture.bmp")) {
-        std::cout << "Texture loaded successfully. Press 't' to toggle between checkerboard and texture." << std::endl;
-    } else {
-        std::cout << "Texture not found or failed to load. Using checkerboard pattern only." << std::endl;
-    }
+    // X axis (red)
+    glColor3f(1, 0, 0);
+    glVertex3f(0, 0, 0);
+    glVertex3f(1, 0, 0);
 
-    glutDisplayFunc(display);
-    glutReshapeFunc(reshape);
-    glutKeyboardFunc(keyboard);
-    glutSpecialFunc(specialKeyListener); // Add special key handler for arrow keys
+    // Y axis (green)
+    glColor3f(0, 1, 0);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 1, 0);
 
-    glutMainLoop();
+    // Z axis (blue)
+    glColor3f(0, 0, 1);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 0, 1);
 
-    // Clean up
-    TextureManager::cleanup();
-    for (Object *obj : objects)
-        delete obj;
-    for (PointLight *light : pointLights)
-        delete light;
-    for (SpotLight *light : spotLights)
-        delete light;
-
-    return 0;
+    glEnd();
 }
+
