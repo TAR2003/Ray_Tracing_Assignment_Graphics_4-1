@@ -582,66 +582,80 @@ void keyboardListener(unsigned char key, int x, int y)
     {
     case '1':
     {
-        // Rotate look-at point around the camera position (left rotation)
-        double ROTATION_ANGLE = rotationSpeed; // Use consistent rotation speed
+        // Rotate look-at point left around camera (yaw left) - simplified algorithm like keys 3-6
+        float ROTATION_ANGLE = rotationSpeed;
         
-        // we are getting the vector which originates from the camera position to the reference point
-        double caX = centerx - eyex;
-        double caY = centery - eyey;
-        double caZ = centerz - eyez;
-
-        // we are calculating the cross product of the camera-to-center vector and the up vector
-        double crossX = upy * caZ - upz * caY;
-        double crossY = upz * caX - upx * caZ;
-        double crossZ = upx * caY - upy * caX;
-
-        // getting the magnitude value of the cross product vector
-        double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
-        // Now, we are making the new t vector as the unit vector for the direction of cross vector
-        double tX = crossX / crossMag;
-        double tY = crossY / crossMag;
-        double tZ = crossZ / crossMag;
+        // Calculate view direction vector
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
         
-        // Use proper rotation angle instead of tiny increments
-        double daX = tX * ROTATION_ANGLE;
-        double daY = tY * ROTATION_ANGLE;
-        double daZ = tZ * ROTATION_ANGLE;
-
-        centerx = centerx + daX;
-        centery = centery + daY;
-        centerz = centerz + daZ;
+        // Get the view distance to maintain it
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        
+        // Normalize the view direction
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+        
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        float normUpx = upx / upLength;
+        float normUpy = upy / upLength;
+        float normUpz = upz / upLength;
+        
+        // Rotation around up vector (yaw left)
+        float cosAngle = cos(ROTATION_ANGLE);
+        float sinAngle = sin(ROTATION_ANGLE);
+        
+        // Rotate view direction around up vector
+        float newViewDirx = viewDirx * cosAngle + (normUpy * viewDirz - normUpz * viewDiry) * sinAngle;
+        float newViewDiry = viewDiry * cosAngle + (normUpz * viewDirx - normUpx * viewDirz) * sinAngle;
+        float newViewDirz = viewDirz * cosAngle + (normUpx * viewDiry - normUpy * viewDirx) * sinAngle;
+        
+        // Update center position
+        centerx = eyex + newViewDirx * viewLength;
+        centery = eyey + newViewDiry * viewLength;
+        centerz = eyez + newViewDirz * viewLength;
         break;
     }
     case '2':
     {
-        // Rotate look-at point around the camera position (right rotation)
-        double ROTATION_ANGLE = rotationSpeed; // Use consistent rotation speed
+        // Rotate look-at point right around camera (yaw right) - simplified algorithm like keys 3-6
+        float ROTATION_ANGLE = -rotationSpeed; // Negative for opposite direction
         
-        // we are getting the vector which originates from the camera position to the reference point
-        double caX = centerx - eyex;
-        double caY = centery - eyey;
-        double caZ = centerz - eyez;
-
-        // we are calculating the cross product of the camera-to-center vector and the up vector
-        double crossX = upy * caZ - upz * caY;
-        double crossY = upz * caX - upx * caZ;
-        double crossZ = upx * caY - upy * caX;
-
-        // getting the magnitude value of the cross product vector
-        double crossMag = sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
-        double tX = crossX / crossMag;
-        double tY = crossY / crossMag;
-        double tZ = crossZ / crossMag;
-
-        // Use proper rotation angle in opposite direction
-        double daX = tX * ROTATION_ANGLE;
-        double daY = tY * ROTATION_ANGLE;
-        double daZ = tZ * ROTATION_ANGLE;
+        // Calculate view direction vector
+        float viewDirx = centerx - eyex;
+        float viewDiry = centery - eyey;
+        float viewDirz = centerz - eyez;
         
-        // Now, we are decrementing the camera position in the direction of the t vector
-        centerx = centerx - daX;
-        centery = centery - daY;
-        centerz = centerz - daZ;
+        // Get the view distance to maintain it
+        float viewLength = sqrt(viewDirx * viewDirx + viewDiry * viewDiry + viewDirz * viewDirz);
+        
+        // Normalize the view direction
+        viewDirx /= viewLength;
+        viewDiry /= viewLength;
+        viewDirz /= viewLength;
+        
+        // Normalize the up vector
+        float upLength = sqrt(upx * upx + upy * upy + upz * upz);
+        float normUpx = upx / upLength;
+        float normUpy = upy / upLength;
+        float normUpz = upz / upLength;
+        
+        // Rotation around up vector (yaw right)
+        float cosAngle = cos(ROTATION_ANGLE);
+        float sinAngle = sin(ROTATION_ANGLE);
+        
+        // Rotate view direction around up vector
+        float newViewDirx = viewDirx * cosAngle + (normUpy * viewDirz - normUpz * viewDiry) * sinAngle;
+        float newViewDiry = viewDiry * cosAngle + (normUpz * viewDirx - normUpx * viewDirz) * sinAngle;
+        float newViewDirz = viewDirz * cosAngle + (normUpx * viewDiry - normUpy * viewDirx) * sinAngle;
+        
+        // Update center position
+        centerx = eyex + newViewDirx * viewLength;
+        centery = eyey + newViewDiry * viewLength;
+        centerz = eyez + newViewDirz * viewLength;
         break;
     }
     case '3': // Rotate camera upwards
