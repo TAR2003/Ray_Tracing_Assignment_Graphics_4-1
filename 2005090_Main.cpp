@@ -32,6 +32,11 @@
 #include "bitmap_image.hpp"
 #include "2005090_Header.hpp" // Object and ray tracing class definitions
 
+// Define M_PI if not already defined
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // OpenGL / GLUT Headers
 #ifdef __APPLE__
 #include <GLUT/glut.h> // Use GLUT framework on macOS
@@ -41,16 +46,17 @@
 
 #define M_PI 3.14159265358979323846
 
-const char* textureFileName = "sample_texture.bmp"; // Default texture file name
+const char* textureFileName = "texture2.bmp"; // Default texture file name
 
 /*
  * TEXTURE MAPPING FEATURE:
  * - Press 't' or 'T' to toggle between checkerboard and texture modes for the floor
- * - The system loads "sample_texture.bmp" by default
+ * - The system loads "texture_1.bmp" by default
  * - To use different textures, call switchTexture("filename.bmp") 
  * - Supports common image formats (BMP, PNG, JPG, TGA, etc.)
  * - Texture coordinates are automatically mapped from world coordinates
  * - Falls back to checkerboard pattern if texture loading fails
+ * - Texture repeats 10 times across the floor for better detail
  */
 
 // Global variables
@@ -230,8 +236,15 @@ void loadData()
         }
     }
 
+    // Read floor parameters from scene file
+    // The scene.txt mentions floor should be 1000 width with 20 tile width
+    double floorWidth = 1000.0;
+    double tileWidth = 20.0;
+    
+    std::cout << "Creating floor with width " << floorWidth << " and tile size " << tileWidth << std::endl;
+    
     // Add floor (as mentioned in the scene description)
-    Floor *floor = new Floor(1000, 20, false); // Start with checkerboard mode
+    Floor *floor = new Floor(floorWidth, tileWidth, false); // Start with checkerboard mode
     objects.push_back(floor);
     
     std::cout << "Floor created with checkerboard pattern. Use 't' key to toggle texture mode." << std::endl;
@@ -279,6 +292,9 @@ void loadData()
         file >> colorR >> colorG >> colorB;
         file >> dirX >> dirY >> dirZ;
         file >> cutoffAngle;
+
+        // Convert cutoff angle from degrees to radians
+        cutoffAngle = cutoffAngle * M_PI / 180.0;
 
         SpotLight *spotlight = new SpotLight(Vector3D(posX, posY, posZ),
                                            Vector3D(dirX, dirY, dirZ),
@@ -393,7 +409,7 @@ void capture()
             }
             
             // Calculate final color
-            double *color = new double[3]{0.2, 0.2, 0.3}; // Default background color instead of pure black
+            double *color = new double[3]{0.05, 0.05, 0.1}; // Darker background color
             if (nearestObject)
             {
                 // nearestObject is not null, so there is an intersection
@@ -401,16 +417,6 @@ void capture()
                 color[0] = color[1] = color[2] = 0.0;
                 // Get actual color from the nearest object
                 double t_min = nearestObject->intersect(ray, color, 1);
-                
-                // Apply distance-based visibility (prevent objects from getting too dark when far)
-                double maxDistance = 500.0; // Maximum reasonable distance
-                double distanceFactor = 1.0 - std::min(tMin / maxDistance, 0.8); // Don't let it get darker than 20%
-                
-                // Ensure minimum visibility - add some ambient light if too dark
-                for (int k = 0; k < 3; k++)
-                {
-                    color[k] = std::max(color[k] * distanceFactor, 0.1); // Minimum brightness with distance factor
-                }
             }
             
             // Clamp color values to [0, 1] range
@@ -712,19 +718,18 @@ void keyboard(unsigned char key, int x, int y)
         // Create rotation matrix around the right vector
         float cosAngle = cos(ROTATION_ANGLE);
         float sinAngle = sin(ROTATION_ANGLE);
-        // here the rotation angle is the angle between the right vector and the view direction vector, so we just add cos angle with viewDir anmd sin angle with right vector
-        // so as it is minus, it will rotate at the different direction
-        // Rotate the view direction vector this is the new view direction from the camera to the reference point here there is ROTATION ANGLE difference from now viewDir vector, and 90 - ROTATION ANGLE reference from the up vector, so we just add cos angle with viewDir anmd sin angle with up vector
+
+        // Rotate the view direction vector
         float newViewDirx = viewDirx * cosAngle + upx * sinAngle;
         float newViewDiry = viewDiry * cosAngle + upy * sinAngle;
         float newViewDirz = viewDirz * cosAngle + upz * sinAngle;
 
-        // Rotate the up vector this is the new up vector, here there is ROTATION ANGLE difference from now up vector, and 90 + ROTATION ANGLE difference from the viewDir vector, so we just subtract cos angle with up vector and sin angle with viewDir vector
+        // Rotate the up vector
         float newUpx = upx * cosAngle - viewDirx * sinAngle;
         float newUpy = upy * cosAngle - viewDiry * sinAngle;
         float newUpz = upz * cosAngle - viewDirz * sinAngle;
 
-        // Update the center position by adding the new view direction with the camera position to get the new center
+        // Update the center position
         centerx = eyex + newViewDirx * viewLength;
         centery = eyey + newViewDiry * viewLength;
         centerz = eyez + newViewDirz * viewLength;

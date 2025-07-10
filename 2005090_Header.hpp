@@ -431,7 +431,7 @@ public:
                 for (int i = 0; i < 3; i++)
                 {
                     color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                    color[i] += pl->color[i] * coefficients[2] * phongValue;                               // specular
+                    color[i] += pl->color[i] * coefficients[2] * phongValue;                         // specular
                 }
             }
         }
@@ -555,8 +555,8 @@ public:
         reference_point = Vector3D(-width / 2, -width / 2, 0);
         length = tileSize;
         setColor(0.7, 0.7, 0.7);
-        setCoefficients(0.4, 0.3, 0.2, 0.1);
-        setShine(5);
+        setCoefficients(0.3, 0.4, 0.4, 0.2); // Increased specular coefficient from 0.2 to 0.4
+        setShine(10); // Increased shininess from 5 to 10
     }
 
     void setTextureMode(bool texture)
@@ -570,9 +570,16 @@ public:
         if (useTexture && TextureManager::textureLoaded)
         {
             // Calculate texture coordinates (u, v) from world coordinates
-            // Map floor coordinates to [0,1] texture space
-            double u = (point.x + floorWidth / 2) / floorWidth;
-            double v = (point.y + floorWidth / 2) / floorWidth;
+            // Map floor coordinates to [0,1] texture space with repetition for better texture detail
+            // Scale factor to repeat texture across the floor (adjust this for more/less repetition)
+            double textureScale = 10.0; // Repeat texture 10 times across the floor
+            
+            double u = fmod((point.x + floorWidth / 2) / floorWidth * textureScale, 1.0);
+            double v = fmod((point.y + floorWidth / 2) / floorWidth * textureScale, 1.0);
+            
+            // Ensure u and v are positive
+            if (u < 0) u += 1.0;
+            if (v < 0) v += 1.0;
 
             // Sample texture
             Color texColor = TextureManager::sampleTexture(u, v);
@@ -719,7 +726,7 @@ public:
                 for (int i = 0; i < 3; i++)
                 {
                     color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                    color[i] += pl->color[i] * coefficients[2] * phongValue;
+                    color[i] += pl->color[i] * coefficients[2] * phongValue; // specular for Floor point lights
                 }
             }
         }
@@ -779,7 +786,7 @@ public:
                     for (int i = 0; i < 3; i++)
                     {
                         color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                        color[i] += sl->color[i] * coefficients[2] * phongValue;
+                        color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Floor spotlights
                     }
                 }
             }
@@ -971,7 +978,7 @@ public:
                     for (int i = 0; i < 3; i++)
                     {
                         color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                        color[i] += pl->color[i] * coefficients[2] * phongValue;                               // specular
+                        color[i] += pl->color[i] * coefficients[2] * phongValue;                        // specular for Triangle point lights
                     }
                 }
             }
@@ -1030,7 +1037,7 @@ public:
                         for (int i = 0; i < 3; i++)
                         {
                             color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                            color[i] += sl->color[i] * coefficients[2] * phongValue;
+                            color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Triangle spotlights
                         }
                     }
                 }
@@ -1227,7 +1234,7 @@ public:
                 for (int i = 0; i < 3; i++)
                 {
                     color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                    color[i] += pl->color[i] * coefficients[2] * phongValue;                               // specular
+                    color[i] += pl->color[i] * coefficients[2] * phongValue;                        // specular for GeneralQuadric point lights
                 }
             }
         }
@@ -1284,7 +1291,7 @@ public:
                     for (int i = 0; i < 3; i++)
                     {
                         color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                        color[i] += sl->color[i] * coefficients[2] * phongValue;
+                        color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for GeneralQuadric spotlights
                     }
                 }
             }
