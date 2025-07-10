@@ -30,7 +30,7 @@
 #include <limits>
 #include <cmath>
 #include "bitmap_image.hpp"
-#include "2005090.hpp" // Object and ray tracing class definitions
+#include "2005090_Header.hpp" // Object and ray tracing class definitions
 
 // OpenGL / GLUT Headers
 #ifdef __APPLE__
@@ -40,6 +40,8 @@
 #endif
 
 #define M_PI 3.14159265358979323846
+
+const char* textureFileName = "sample_texture.bmp"; // Default texture file name
 
 /*
  * TEXTURE MAPPING FEATURE:
@@ -84,8 +86,8 @@ double nearPlane = 1.0;
 double farPlane = 1000.0;
 
 // Window dimensions
-int windowWidth = 1920;
-int windowHeight = 1080;
+int windowWidth = 1280; // Increased for better resolution
+int windowHeight = 720;
 double worldWidth = 2.0;
 double worldHeight = 2.0;
 
@@ -106,7 +108,7 @@ void initGL()
 }
 
 // Scene loading function
-void loadScene()
+void loadData()
 {
     std::ifstream file("scene.txt");
     if (!file.is_open())
@@ -116,7 +118,7 @@ void loadScene()
     }
 
     int recursionLevel, imageSize;
-    file >> recursionLevel >> imageSize;
+    file >> recursionLevel >> imageSize; // the first pair of inputs are the recursion level and image size
     
     // Set global recursion level
     maxRecursionLevel = recursionLevel;
@@ -126,7 +128,8 @@ void loadScene()
     std::cout << "Image Size: " << imageSize << std::endl;
 
     // Update global parameters based on scene file
-    windowWidth = windowHeight = imageSize;
+    windowHeight = imageSize;
+    windowWidth = imageSize;
     worldWidth = 200.0;   // Increase world dimensions to match scene scale
     worldHeight = 200.0;
 
@@ -158,6 +161,7 @@ void loadScene()
             file >> ambient >> diffuse >> specular >> reflection;
             file >> shininess;
 
+            // now we create the sphere with all the variables
             Sphere *sphere = new Sphere(Vector3D(centerX, centerY, centerZ), radius);
             sphere->setColor(colorR, colorG, colorB);
             sphere->setCoefficients(ambient, diffuse, specular, reflection);
@@ -181,6 +185,7 @@ void loadScene()
             file >> ambient >> diffuse >> specular >> reflection;
             file >> shininess;
 
+            // now we create the triangle with all the variables
             Triangle *triangle = new Triangle(Vector3D(x1, y1, z1), 
                                             Vector3D(x2, y2, z2), 
                                             Vector3D(x3, y3, z3));
@@ -207,6 +212,9 @@ void loadScene()
             file >> ambient >> diffuse >> specular >> reflection;
             file >> shininess;
 
+            // now we create the general quadric with all the variables
+            // GeneralQuadric is a class that represents a quadric surface defined by the coefficients A, B, C, D, E, F, G, H, I, J
+            // and the reference point (refX, refY, refZ) with dimensions (
             GeneralQuadric *quadric = new GeneralQuadric(A, B, C, D, E, F, G, H, I, J);
             quadric->reference_point = Vector3D(refX, refY, refZ);
             quadric->length = length;
@@ -232,7 +240,7 @@ void loadScene()
     int numPointLights;
     file >> numPointLights;
 
-    // Clear existing lights
+    // clear any existing light pointers
     for (PointLight *light : pointLights)
         delete light;
     pointLights.clear();
@@ -255,7 +263,7 @@ void loadScene()
     int numSpotLights;
     file >> numSpotLights;
 
-    // Clear existing spot lights
+    // Clear existing spot lights pointers
     for (SpotLight *light : spotLights)
         delete light;
     spotLights.clear();
@@ -286,7 +294,10 @@ void loadScene()
     file.close();
 }
 
-// Utility function to switch textures easily
+/**
+ * Switches the floor texture to a new image file
+ * @param filename The name of the texture file to load
+ */
 void switchTexture(const char* filename)
 {
     if (TextureManager::loadTexture(filename)) {
@@ -303,14 +314,17 @@ void switchTexture(const char* filename)
     }
 }
 
+/// @brief Captures the current window content to an image file
 void capture()
 {
-    static int captureCount = 11;
+    static int captureCount = 11; // Start from Output_11.bmp as per the requirement
     const int imageWidth = windowWidth;  // Use actual window dimensions
     const int imageHeight = windowHeight;
     
     // Initialize bitmap image and set background color
     bitmap_image image(imageWidth, imageHeight);
+
+    image.clear(); // Clear the image to default color
     
     // Set a light background color instead of pure black
     for (int i = 0; i < imageWidth; i++)
@@ -341,11 +355,12 @@ void capture()
     Vector3D topLeft = eye + l * planeDistance - r * (windowWidth / 2.0) + u * (windowHeight / 2.0);
     
     // Calculate pixel step sizes
-    double du = (double)windowWidth / imageWidth;
+    // pixel height and width in world coordinates
+    double du = (double)windowWidth / imageWidth; 
     double dv = (double)windowHeight / imageHeight;
     
     // Choose middle of the grid cell
-    topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv);
+    topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv); // adjust to center pixel
     
     std::cout << "Capturing image " << captureCount << "..." << std::endl;
     
@@ -368,6 +383,7 @@ void capture()
             // Find nearest intersection
             for (Object *obj : objects)
             {
+                // we will check t value for each objects in the scene
                 double t = obj->intersect(ray, dummyColor, 0);
                 if (t > 0 && t < tMin)
                 {
@@ -380,6 +396,7 @@ void capture()
             double *color = new double[3]{0.2, 0.2, 0.3}; // Default background color instead of pure black
             if (nearestObject)
             {
+                // nearestObject is not null, so there is an intersection
                 // Reset color for object intersection
                 color[0] = color[1] = color[2] = 0.0;
                 // Get actual color from the nearest object
@@ -519,12 +536,13 @@ void reshapeListener(GLsizei width, GLsizei height)
 // Draw coordinate axes
 
 
-// Forward declaration
-void keyboardListener(unsigned char key, int x, int y);
-
 void keyboard(unsigned char key, int x, int y)
 {
-    // Handle capture, texture toggle, and exit here, then delegate to camera settings
+    // Calculate view direction vector for camera operations
+    double lx = centerx - eyex;
+    double lz = centerz - eyez;
+    double s;
+
     switch (key)
     {
     case '0':
@@ -546,40 +564,6 @@ void keyboard(unsigned char key, int x, int y)
             }
         }
         break;
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case 'w':
-    case 's':
-    case 'a':
-    case 27: // ESC
-        // Call the integrated camera keyboard handler
-        keyboardListener(key, x, y);
-        break;
-    default:
-        // For other keys, also call the keyboard handler
-        keyboardListener(key, x, y);
-        break;
-    }
-    glutPostRedisplay();
-}
-
-/**
- * Keyboard input handler for standard keys from camera settings
- * Manages camera position, object visibility, and program exit
- */
-void keyboardListener(unsigned char key, int x, int y)
-{
-    // Calculate view direction vector
-    double lx = centerx - eyex;
-    double lz = centerz - eyez;
-    double s;
-
-    switch (key)
-    {
     case '1':
     {
         // Rotate look-at point left around camera (yaw left) - simplified algorithm like keys 3-6
@@ -847,44 +831,17 @@ void keyboardListener(unsigned char key, int x, int y)
         upz /= upLength;
         break;
     }
-
-    case 'w':
-    {
-        // Move camera up without changing the reference point
-        eyey += movementSpeed;
-        break;
-    }
-    case 's':
-        eyey -= movementSpeed;
-        break; // Move camera down withiout changing the refernce point
-
-    case 't':
-        centerz += movementSpeed;
-        break; // Move look-at point forward
-    case 'y':
-        centerz -= movementSpeed;
-        break; // Move look-at point backward
-    case '*':
-        movementSpeed += 0.1f;
-        rotationSpeed += 0.1f;
-        break;
-    case '/':
-        movementSpeed -= 0.1f;
-        rotationSpeed -= 0.1f;
-        break;
-
-    // --- Object Visibility Toggles ---
     case 'a':
         isAxes = !isAxes;
         break; // Toggle axes
-
     // --- Program Control ---
     case 27:
         exit(0);
         break; // ESC key: exit program
+    default:
+        break;
     }
-
-    glutPostRedisplay(); // Request a screen refresh
+    glutPostRedisplay();
 }
 
 /**
@@ -1078,10 +1035,10 @@ int main(int argc, char **argv)
     std::cout << "========================\n" << std::endl;
 
     // Load the scene from the file
-    loadScene();
+    loadData();
     
     // Try to load texture (optional)
-    if (TextureManager::loadTexture("sample_texture.bmp")) {
+    if (TextureManager::loadTexture(textureFileName)) {
         std::cout << "Texture loaded successfully. Press 't' to toggle between checkerboard and texture." << std::endl;
     } else {
         std::cout << "Texture not found or failed to load. Using checkerboard pattern only." << std::endl;
