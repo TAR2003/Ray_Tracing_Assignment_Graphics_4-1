@@ -120,9 +120,9 @@ public:
     /// @return True if the texture was loaded successfully, false otherwise
     static bool loadTexture(const char *filename)
     {
-        cleanup();                                                                                 // Clean up previous texture if any remained after the previous stages or loading times
+        cleanup();                                                                             // Clean up previous texture if any remained after the previous stages or loading times
         textureData = stbi_load(filename, &textureWidth, &textureHeight, &textureChannels, 0); // Load the texture using stb_image
-        if (!textureData)                                                                          // Check if texture loading failed
+        if (!textureData)                                                                      // Check if texture loading failed
         {
             cerr << "Failed to load texture: " << filename << endl; // Print error message
             return false;
@@ -327,58 +327,8 @@ public:
         colorAt[2] = color[2];
     }
 
-    
-};
-
-class Sphere : public Object
-{
-public:
-    double radius; // Radius of the sphere
-
-    Sphere(const Vector3D &center, double r) : radius(r)
+    double intersectPoint(const Ray &r, double *color, int level, Vector3D intersectionPoint, double t, Vector3D normal) const
     {
-        reference_point = center;        // Set the reference point to the center of the sphere
-        height = width = length = r * 2; // Set dimensions based on radius
-    }
-    void draw() override
-    {
-        glPushMatrix();                                                        // Save the current matrix state
-        glTranslatef(reference_point.x, reference_point.y, reference_point.z); // Move to the sphere's center
-        glColor3f(color[0], color[1], color[2]);                               // Set the sphere's color
-        glutSolidSphere(radius, 50, 50);                                       // Draw the sphere with a solid appearance
-        glPopMatrix();                                                         // Restore the previous matrix state
-    }
-
-    // @brief get the intersection point of the ray with the sphere
-    double intersect(const Ray &r, double *color, int level) const override
-    {
-        // first we set up the sphere ray intersection equation
-        Vector3D oc = r.start - reference_point; // Vector from ray start to sphere center
-        double a = r.dir.dot(r.dir);             // Dot product of ray direction with itself
-        double b = 2.0 * oc.dot(r.dir);          // Dot product of oc with ray direction, multiplied by 2
-        double c = oc.dot(oc) - radius * radius; // Dot product of oc with itself minus radius squared
-        double discriminant = b * b - 4 * a * c; // Discriminant for quadratic equation
-        if (discriminant < 0)
-            return -1.0;
-
-        double sqrt_discriminant = sqrt(discriminant);    // Square root of the discriminant
-        double t1 = (-b - sqrt_discriminant) / (2.0 * a); // First root of the quadratic equation
-        double t2 = (-b + sqrt_discriminant) / (2.0 * a); // Second root of the quadratic equation
-
-        // we will take the value of the smallest t possible
-        double t = (t1 > 0) ? t1 : t2;
-        if (t <= 0)
-            return -1.0; // if no t root is possible we will return -1.0
-
-        // If level is 0, only return intersection distance
-        if (level == 0)
-            return t;
-
-        // Calculate intersection point and lighting and the caluclation for the noirmal
-        Vector3D intersectionPoint = r.start + r.dir * t;
-        Vector3D normal;
-        getNormal(intersectionPoint, normal); // Get the normal at the intersection point
-
         // Get color at intersection point
         double intersectionPointColor[3];
         getColorAt(intersectionPoint, intersectionPointColor);
@@ -437,7 +387,7 @@ public:
                 for (int i = 0; i < 3; i++)
                 {
                     color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                    color[i] += pl->color[i] * coefficients[2] * phongValue;                         // specular
+                    color[i] += pl->color[i] * coefficients[2] * phongValue;                               // specular
                 }
             }
         }
@@ -476,6 +426,8 @@ public:
 
                 if (!inShadow)
                 {
+                    // inShadow is false, so the intersection point is lit by the spotlight
+                    // Calculate diffuse component using Lambert's cosine law
                     Vector3D toLight = sl->position - intersectionPoint; // direction from intersection point to spotlight position
                     toLight.normalize();                                 // Normalize the direction vector
                     double lambertValue = max(0.0, normal.dot(toLight)); // Lambert's cosine law for diffuse reflection
@@ -540,6 +492,59 @@ public:
 
         return t;
     }
+};
+
+class Sphere : public Object
+{
+public:
+    double radius; // Radius of the sphere
+
+    Sphere(const Vector3D &center, double r) : radius(r)
+    {
+        reference_point = center;        // Set the reference point to the center of the sphere
+        height = width = length = r * 2; // Set dimensions based on radius
+    }
+    void draw() override
+    {
+        glPushMatrix();                                                        // Save the current matrix state
+        glTranslatef(reference_point.x, reference_point.y, reference_point.z); // Move to the sphere's center
+        glColor3f(color[0], color[1], color[2]);                               // Set the sphere's color
+        glutSolidSphere(radius, 50, 50);                                       // Draw the sphere with a solid appearance
+        glPopMatrix();                                                         // Restore the previous matrix state
+    }
+
+    // @brief get the intersection point of the ray with the sphere
+    double intersect(const Ray &r, double *color, int level) const override
+    {
+        // first we set up the sphere ray intersection equation
+        Vector3D oc = r.start - reference_point; // Vector from ray start to sphere center
+        double a = r.dir.dot(r.dir);             // Dot product of ray direction with itself
+        double b = 2.0 * oc.dot(r.dir);          // Dot product of oc with ray direction, multiplied by 2
+        double c = oc.dot(oc) - radius * radius; // Dot product of oc with itself minus radius squared
+        double discriminant = b * b - 4 * a * c; // Discriminant for quadratic equation
+        if (discriminant < 0)
+            return -1.0;
+
+        double sqrt_discriminant = sqrt(discriminant);    // Square root of the discriminant
+        double t1 = (-b - sqrt_discriminant) / (2.0 * a); // First root of the quadratic equation
+        double t2 = (-b + sqrt_discriminant) / (2.0 * a); // Second root of the quadratic equation
+
+        // we will take the value of the smallest t possible
+        double t = (t1 > 0) ? t1 : t2;
+        if (t <= 0)
+            return -1.0; // if no t root is possible we will return -1.0
+
+        // If level is 0, only return intersection distance
+        if (level == 0)
+            return t;
+
+        // Calculate intersection point and lighting and the caluclation for the noirmal
+        Vector3D intersectionPoint = r.start + r.dir * t;
+        Vector3D normal;
+        getNormal(intersectionPoint, normal); // Get the normal at the intersection point
+
+        return intersectPoint(r, color, level, intersectionPoint, t, normal); // Call the intersectPoint function to calculate the color at the intersection point
+    }
 
     void getNormal(const Vector3D &point, Vector3D &normal) const override
     {
@@ -562,7 +567,7 @@ public:
         length = tileSize;
         setColor(0.7, 0.7, 0.7);
         setCoefficients(0.3, 0.4, 0.4, 0.2); // Increased specular coefficient from 0.2 to 0.4
-        setShine(10); // Increased shininess from 5 to 10
+        setShine(10);                        // Increased shininess from 5 to 10
     }
 
     void setTextureMode(bool texture)
@@ -579,13 +584,15 @@ public:
             // Map floor coordinates to [0,1] texture space with repetition for better texture detail
             // Scale factor to repeat texture across the floor (adjust this for more/less repetition)
             double textureScale = 10.0; // Repeat texture 10 times across the floor
-            
+
             double u = fmod((point.x + floorWidth / 2) / floorWidth * textureScale, 1.0);
             double v = fmod((point.y + floorWidth / 2) / floorWidth * textureScale, 1.0);
-            
+
             // Ensure u and v are positive
-            if (u < 0) u += 1.0;
-            if (v < 0) v += 1.0;
+            if (u < 0)
+                u += 1.0;
+            if (v < 0)
+                v += 1.0;
 
             // Sample texture
             Color texColor = TextureManager::sampleTexture(u, v);
@@ -675,174 +682,9 @@ public:
         if (level == 0)
             return t;
 
-        // Get color at intersection point for both checkerboard and texture
-        double intersectionPointColor[3];
-        getColorAt(intersection, intersectionPointColor);
-
-        // Initialize with ambient component
-        color[0] = intersectionPointColor[0] * coefficients[0];
-        color[1] = intersectionPointColor[1] * coefficients[0];
-        color[2] = intersectionPointColor[2] * coefficients[0];
-
-        Vector3D normal = Vector3D(0, 0, 1); // Floor normal always points up, this is a must
-
-        // Process each point light
-        for (PointLight *pl : pointLights)
-        {
-            // for every point light, we will cast a ray from the light to the intersection point
-            Vector3D lightDir = intersection - pl->position;
-            double lightDistance = lightDir.length();
-            lightDir.normalize();
-            Ray lightRay(pl->position, lightDir);
-
-            // Check if intersection point is in shadow
-            bool inShadow = false;
-            // Now shadow checking, if there is any object between the light and the intersection point
-            // if so, then the intersection point is shadowed
-            for (Object *obj : objects)
-            {
-                if (obj != this)
-                {
-                    double shadowT = obj->intersect(lightRay, nullptr, 0);
-                    if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
-                    {
-                        inShadow = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!inShadow)
-            {
-                // Calculate diffuse component Lambert
-                // represents how much light hits the surface based on its angle to the light source
-                Vector3D toLight = pl->position - intersection;
-                toLight.normalize();
-                double lambertValue = max(0.0, normal.dot(toLight));
-
-                // Calculate specular component Phong
-                // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                reflected.normalize();
-                Vector3D toCamera = r.start - intersection;
-                toCamera.normalize();
-                double phongValue = max(0.0, reflected.dot(toCamera));
-                phongValue = pow(phongValue, shine);
-
-                for (int i = 0; i < 3; i++)
-                {
-                    color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                    color[i] += pl->color[i] * coefficients[2] * phongValue; // specular for Floor point lights
-                }
-            }
-        }
-
-        // Process each spot light
-        for (SpotLight *sl : spotLights)
-        {
-            // Check if intersection point is within spotlight cone
-            // Cast ray from spotlight to intersection point
-            Vector3D lightToPoint = intersection - sl->position;
-            double lightDistance = lightToPoint.length();
-            lightToPoint.normalize();
-
-            double angle = acos(lightToPoint.dot(sl->direction)); // Calculate angle between light direction and vector to intersection point
-            // Check if the angle is within the spotlight's cutoff angle
-
-            if (angle <= sl->cutoffAngle)
-            {
-                // the angle is less or equal  to the cutoff angle, so we will proceed with the spotlight
-                // Create ray from spotlight to intersection point
-                // This ray will be used to check if the intersection point is in shadow
-                Ray lightRay(sl->position, lightToPoint);
-
-                bool inShadow = false;
-                // we will check if there is any object between the spotlight and the intersection point
-                // if so, then the intersection point is shadowed
-                for (Object *obj : objects)
-                {
-                    if (obj != this)
-                    {
-                        double shadowT = obj->intersect(lightRay, nullptr, 0);
-                        if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
-                        {
-                            inShadow = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!inShadow)
-                {
-                    // Calculate diffuse component Lambert
-                    // represents how much light hits the surface based on its angle to the light source
-                    Vector3D toLight = sl->position - intersection;
-                    toLight.normalize();
-                    double lambertValue = max(0.0, normal.dot(toLight));
-
-                    // Calculate specular component using Phong reflection model
-                    // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                    Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                    reflected.normalize();
-                    Vector3D toCamera = r.start - intersection;
-                    toCamera.normalize();
-                    double phongValue = max(0.0, reflected.dot(toCamera));
-                    phongValue = pow(phongValue, shine);
-
-                    for (int i = 0; i < 3; i++)
-                    {
-                        color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                        color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Floor spotlights
-                    }
-                }
-            }
-        }
-
-        // Handle reflection of the ray if recursion level allows
-        if (level < maxRecursionLevel && coefficients[3] > 0) // coefficients[3] is reflection coefficient
-        {
-            // Calculate reflected ray direction
-            Vector3D incident = r.dir; // the incoming ray direction
-            Vector3D reflected = incident - normal * (2.0 * incident.dot(normal)); // computed using the reflection formula 
-            reflected.normalize();
-
-            // Create reflected ray starting slightly forward from intersection point to avoid self-intersection
-            Vector3D reflectedStart = intersection + reflected * 0.001;
-            Ray reflectedRay(reflectedStart, reflected); // now we  created a new Ray object which represents the reflected ray
-
-            // Find nearest intersecting object for the reflected ray
-            double minT = numeric_limits<double>::max(); // Initialize minimum intersection distance
-            Object *nearestObject = nullptr;
-
-            // Now we will iterate over all objects in the scene 
-            // and check which one is the closest object in the reflected ray
-            // and we will store the minimum intersection distance t
-            for (Object *obj : objects)
-            {
-                double t = obj->intersect(reflectedRay, nullptr, 0);
-                if (t > 0 && t < minT)
-                {
-                    minT = t;
-                    nearestObject = obj;
-                }
-            }
-
-            // If reflection ray hits an object, calculate reflected color
-            if (nearestObject != nullptr)
-            {
-                // nearestObject is the closest object in the reflected ray
-                double reflectedColor[3] = {0, 0, 0};
-                nearestObject->intersect(reflectedRay, reflectedColor, level + 1); // we will increase the recursion level by 1
-
-                // Add reflected color contribution
-                for (int i = 0; i < 3; i++)
-                {
-                    color[i] += reflectedColor[i] * coefficients[3]; // coefficients[3] is reflection coefficient
-                }
-            }
-        }
-
-        return t;
+        Vector3D normal;
+        getNormal(intersection, normal);
+        return intersectPoint(r, color, level, intersection, t, normal); // Call the helper function to handle color and lighting
     }
 
     void getNormal(const Vector3D &point, Vector3D &normal) const override
@@ -884,7 +726,7 @@ public:
     /// @return The distance to the intersection point, or -1 if no intersection
     double intersect(const Ray &r, double *color, int level) const override
     {
-        // Ray-triangle intersection 
+        // Ray-triangle intersection
         Vector3D edge1 = b - a;
         Vector3D edge2 = c - a;
         Vector3D h = r.dir.cross(edge2);
@@ -901,7 +743,6 @@ public:
         double f = 1.0 / a_det;
         Vector3D s = r.start - a;
         double u = f * s.dot(h);
-
 
         if (u < 0.0 || u > 1.0)
             return -1.0; // if the barycentric coordinate u is outside the triangle
@@ -928,170 +769,7 @@ public:
             getNormal(intersectionPoint, normal);
 
             // Get color at intersection point
-            double intersectionPointColor[3];
-            getColorAt(intersectionPoint, intersectionPointColor);
-
-            // scales the base color intersection point color by ambient coefficient
-            color[0] = intersectionPointColor[0] * coefficients[0]; // ambient
-            color[1] = intersectionPointColor[1] * coefficients[0];
-            color[2] = intersectionPointColor[2] * coefficients[0];
-
-            // Process each point light
-            for (PointLight *pl : pointLights)
-            {
-                // Cast ray from light to intersection point
-                Vector3D lightDir = intersectionPoint - pl->position;
-                double lightDistance = lightDir.length();
-                lightDir.normalize();
-                Ray lightRay(pl->position, lightDir);
-
-                // Check if intersection point is in shadow
-                bool inShadow = false;
-                for (Object *obj : objects)
-                {
-                    // Check if any object is between the light and the intersection point
-                    // if so, then the intersection point is shadowed
-                    if (obj != this) // Don't check self-intersection
-                    {
-                        double shadowT = obj->intersect(lightRay, nullptr, 0);
-                        if (shadowT > 0.001 && shadowT < lightDistance - 0.001) // Small epsilon for numerical stability
-                        {
-                            inShadow = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!inShadow)
-                {
-                    // Calculate diffuse component (Lambert)
-                    // represents how much light hits the surface based on its angle to the light source
-                    Vector3D toLight = pl->position - intersectionPoint;
-                    toLight.normalize();
-                    double lambertValue = max(0.0, normal.dot(toLight));
-
-                    // Calculate specular component (Phong)
-                    // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                    // reflected vector is calculated using the normal and the light direction
-                    Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                    reflected.normalize();
-                    Vector3D toCamera = r.start - intersectionPoint;
-                    toCamera.normalize();
-                    double phongValue = max(0.0, reflected.dot(toCamera));
-                    phongValue = pow(phongValue, shine);
-
-                    // Add diffuse and specular contributions
-                    for (int i = 0; i < 3; i++)
-                    {
-                        color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                        color[i] += pl->color[i] * coefficients[2] * phongValue;                        // specular for Triangle point lights
-                    }
-                }
-            }
-
-            // Process each spot light
-            for (SpotLight *sl : spotLights)
-            {
-                // Check if intersection point is within spotlight cone
-                // Cast ray from spotlight to intersection point
-                Vector3D lightToPoint = intersectionPoint - sl->position;
-                double lightDistance = lightToPoint.length();
-                lightToPoint.normalize();
-
-                // Check if point is within spotlight cone
-                double angle = acos(lightToPoint.dot(sl->direction));
-                if (angle <= sl->cutoffAngle)
-                {
-                    // the angle is less or equal to the cutoff angle, so we will proceed with the spotlight
-                    // Create ray from spotlight to intersection point
-                    Ray lightRay(sl->position, lightToPoint);
-
-                    // Check shadow
-                    bool inShadow = false;
-                    for (Object *obj : objects)
-                    {
-                        // we now check all objects in the scene to see if any of them is between the spotlight and the intersection point
-                        // if so, then the intersection point is shadowed
-                        if (obj != this) // Don't check self-intersection
-                        {
-                            double shadowT = obj->intersect(lightRay, nullptr, 0);
-                            if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
-                            {
-                                inShadow = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!inShadow)
-                    {
-                        // Calculate diffuse component Lambert
-                        // represents how much light hits the surface based on its angle to the light source
-                        Vector3D toLight = sl->position - intersectionPoint;
-                        toLight.normalize();
-                        double lambertValue = max(0.0, normal.dot(toLight));
-
-                        // Calculate specular component using Phong reflection model
-                        // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                        Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                        reflected.normalize();
-                        Vector3D toCamera = r.start - intersectionPoint;
-                        toCamera.normalize();
-                        double phongValue = max(0.0, reflected.dot(toCamera));
-                        phongValue = pow(phongValue, shine);
-
-                        for (int i = 0; i < 3; i++)
-                        {
-                            color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                            color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Triangle spotlights
-                        }
-                    }
-                }
-            }
-
-            // Handle reflection
-            if (level < maxRecursionLevel && coefficients[3] > 0) // coefficients[3] is reflection coefficient
-            {
-                // Calculate reflected ray direction
-                Vector3D incident = r.dir; // Incident ray direction
-                Vector3D reflected = incident - normal * (2.0 * incident.dot(normal));
-                reflected.normalize();
-
-                // Create reflected ray starting slightly forward from intersection point to avoid self-intersection
-                Vector3D reflectedStart = intersectionPoint + reflected * 0.001;
-                Ray reflectedRay(reflectedStart, reflected);
-
-                // Find nearest intersecting object for the reflected ray
-                double minT = numeric_limits<double>::max();
-                Object *nearestObject = nullptr;
-
-                for (Object *obj : objects)
-                {
-                    double t = obj->intersect(reflectedRay, nullptr, 0);
-                    if (t > 0 && t < minT)
-                    {
-                        minT = t;
-                        nearestObject = obj;
-                    }
-                }
-
-                // If reflection ray hits an object, calculate reflected color
-                if (nearestObject != nullptr)
-                {
-                    // nearestObject is the closest object in the reflected ray
-                    // Initialize reflected color array
-                    double reflectedColor[3] = {0, 0, 0};
-                    nearestObject->intersect(reflectedRay, reflectedColor, level + 1); // we will increment the recursion level by 1
-
-                    // Add reflected color contribution
-                    for (int i = 0; i < 3; i++)
-                    {
-                        color[i] += reflectedColor[i] * coefficients[3]; // coefficients[3] is reflection coefficient
-                    }
-                }
-            }
-
-            return t;
+            return intersectPoint(r, color, level, intersectionPoint, t, normal); // Call the helper function to handle color and lighting
         }
 
         return -1.0; // Line intersection but not ray intersection
@@ -1184,7 +862,7 @@ public:
 
             // Collect all valid intersection points
             // store all valid intersections positive t within bound
-            
+
             vector<double> valid_intersections;
 
             if (t1 > 1e-6)
@@ -1250,171 +928,7 @@ public:
         Vector3D normal;
         getNormal(intersectionPoint, normal);
 
-        // Get color at intersection point
-        double intersectionPointColor[3];
-        getColorAt(intersectionPoint, intersectionPointColor);
-
-        // ambient component init
-        color[0] = intersectionPointColor[0] * coefficients[0];
-        color[1] = intersectionPointColor[1] * coefficients[0];
-        color[2] = intersectionPointColor[2] * coefficients[0];
-
-        // Process each point light
-        for (PointLight *pl : pointLights)
-        {
-            // we will nowe check for every pojtnlights in the scene currently
-            Vector3D lightDir = intersectionPoint - pl->position; // direction from light to intersection point
-            double lightDistance = lightDir.length(); // distance from light to intersection point
-            lightDir.normalize();
-            Ray lightRay(pl->position, lightDir); // create a ray from the light to the intersection point
-
-            bool inShadow = false;
-            for (Object *obj : objects)
-            {
-                // wer are checking every otehr oibject exseft itself
-                if (obj != this)
-                {
-                    double shadowT = obj->intersect(lightRay, nullptr, 0);
-                    if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
-                    {
-                        // there is an object between the light and the intersection point
-                        // so the intersection point is shadowed
-                        inShadow = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!inShadow)
-            {
-                // Calculate diffuse component Lambert
-                // represents how much light hits the surface based on its angle to the light source
-                Vector3D toLight = pl->position - intersectionPoint;
-                toLight.normalize();
-                double lambertValue = max(0.0, normal.dot(toLight));
-
-                // Calculate specular component Phong
-                // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                reflected.normalize();
-                Vector3D toCamera = r.start - intersectionPoint;
-                toCamera.normalize();
-                double phongValue = max(0.0, reflected.dot(toCamera));
-                phongValue = pow(phongValue, shine);
-
-                for (int i = 0; i < 3; i++)
-                {
-                    color[i] += pl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i]; // diffuse
-                    color[i] += pl->color[i] * coefficients[2] * phongValue * intersectionPointColor[i]; // specular for GeneralQuadric point lights
-                    color[i] = min(1.0, max(0.0, color[i])); // Clamp to [0,1]
-                }
-            }
-        }
-
-        // Process each spot light (similar to point lights but with angle check)
-        // Process each spot light
-        for (SpotLight *sl : spotLights)
-        {
-            // Check if intersection point is within spotlight cone
-            // Cast ray from spotlight to intersection point
-            Vector3D lightToPoint = intersectionPoint - sl->position;
-            double lightDistance = lightToPoint.length();
-            lightToPoint.normalize();
-
-            // Check if point is within spotlight cone
-            double angle = acos(lightToPoint.dot(sl->direction));
-            if (angle <= sl->cutoffAngle)
-            {
-                // the angle is less or equal to the cutoff angle, so we will proceed with the spotlight
-                // Create ray from spotlight to intersection point
-                Ray lightRay(sl->position, lightToPoint);
-
-                // Check shadow
-                bool inShadow = false;
-                for (Object *obj : objects)
-                {
-                    // we now check all objects in the scene to see if any of them is between the spotlight and the intersection point
-                    // if so, then the intersection point is shadowed
-                    if (obj != this) // Don't check self-intersection
-                    {
-                        double shadowT = obj->intersect(lightRay, nullptr, 0);
-                        if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
-                        {
-                            inShadow = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!inShadow)
-                {
-                    // Calculate diffuse component Lambert
-                    // represents how much light hits the surface based on its angle to the light source
-                    Vector3D toLight = sl->position - intersectionPoint;
-                    toLight.normalize();
-                    double lambertValue = max(0.0, normal.dot(toLight));
-
-                    // Calculate specular component using Phong reflection model
-                    // represents the shiny highlight on the surface based on the angle to the light source and viewer
-                    Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
-                    reflected.normalize();
-                    Vector3D toCamera = r.start - intersectionPoint;
-                    toCamera.normalize();
-                    double phongValue = max(0.0, reflected.dot(toCamera));
-                    phongValue = pow(phongValue, shine);
-
-                    for (int i = 0; i < 3; i++)
-                    {
-                        color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
-                        color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Triangle spotlights
-                    }
-                }
-            }
-        }
-        // Handle reflection
-        if (level < maxRecursionLevel && coefficients[3] > 0)
-        {
-            // Calculate reflected ray direction
-            // coefficients[3] is the reflection coefficient
-            Vector3D incident = r.dir;
-            Vector3D reflected = incident - normal * (2.0 * incident.dot(normal));
-            reflected.normalize();
-
-            // we now create reflected ray starting slightly forward from intersection point to avoid self intersection problems
-            // we will create a new ray object which represents the reflected ray
-            Vector3D reflectedStart = intersectionPoint + reflected * 0.001;
-            Ray reflectedRay(reflectedStart, reflected);
-
-            double minT = numeric_limits<double>::max();
-            Object *nearestObject = nullptr;
-
-            for (Object *obj : objects)
-            {
-                // we will now iterate over all objects in the scene and check which one is the closest object in the reflected ray
-                double t = obj->intersect(reflectedRay, nullptr, 0);
-                if (t > 0 && t < minT)
-                {
-                    minT = t;
-                    nearestObject = obj;
-                }
-            }
-
-            if (nearestObject != nullptr)
-            {
-                // the nearest object is the closest object in the reflected ray
-                // Initialize reflected color array
-                double reflectedColor[3] = {0, 0, 0};
-                nearestObject->intersect(reflectedRay, reflectedColor, level + 1);
-
-                for (int i = 0; i < 3; i++)
-                {
-                    color[i] += reflectedColor[i] * coefficients[3];
-                    color[i] = min(1.0, max(0.0, color[i])); // Clamp to [0,1]
-                }
-            }
-        }
-
-        return t;
+        return intersectPoint(r, color, level, intersectionPoint, t, normal); // Call the helper function to handle color and lighting
     }
 
     void getNormal(const Vector3D &point, Vector3D &normal) const override
