@@ -326,6 +326,8 @@ public:
         colorAt[1] = color[1];
         colorAt[2] = color[2];
     }
+
+    
 };
 
 class Sphere : public Object
