@@ -31,6 +31,7 @@
 #include <cmath>
 #include "bitmap_image.hpp"
 #include "2005090_Header.hpp" // Object and ray tracing class definitions
+using namespace std; 
 
 // Define M_PI if not already defined
 #ifndef M_PI
@@ -60,9 +61,9 @@ const char* textureFileName = "texture2.bmp"; // Default texture file name
  */
 
 // Global variables
-std::vector<Object *> objects;
-std::vector<PointLight *> pointLights;
-std::vector<SpotLight *> spotLights;
+vector<Object *> objects;
+vector<PointLight *> pointLights;
+vector<SpotLight *> spotLights;
 
 // Recursion level for reflections
 int maxRecursionLevel = 3;
@@ -113,13 +114,13 @@ void initGL()
     gluPerspective(45.0f, static_cast<double>(windowWidth) / windowHeight, 0.1f, 1000.0f);
 }
 
-// Scene loading function
+// Scene loading function from the scene.txt file
 void loadData()
 {
-    std::ifstream file("scene.txt");
+    ifstream file("scene.txt");
     if (!file.is_open())
     {
-        std::cerr << "Error: Could not open scene.txt file!" << std::endl;
+        cerr << "Error: Could not open scene.txt file!" << endl;
         return;
     }
 
@@ -129,9 +130,9 @@ void loadData()
     // Set global recursion level
     maxRecursionLevel = recursionLevel;
     
-    std::cout << "Loading scene..." << std::endl;
-    std::cout << "Recursion Level: " << recursionLevel << std::endl;
-    std::cout << "Image Size: " << imageSize << std::endl;
+    cout << "Loading scene..." << endl;
+    cout << "Recursion Level: " << recursionLevel << endl;
+    cout << "Image Size: " << imageSize << endl;
 
     // Update global parameters based on scene file
     windowHeight = imageSize;
@@ -141,7 +142,7 @@ void loadData()
 
     int numObjects;
     file >> numObjects;
-    std::cout << "Number of objects to load: " << numObjects << std::endl;
+    cout << "Number of objects to load: " << numObjects << endl;
 
     // Clear existing objects
     for (Object *obj : objects)
@@ -151,7 +152,7 @@ void loadData()
     // Load objects
     for (int i = 0; i < numObjects; i++)
     {
-        std::string objectType;
+        string objectType;
         file >> objectType;
 
         if (objectType == "sphere")
@@ -174,8 +175,8 @@ void loadData()
             sphere->setShine(shininess);
             objects.push_back(sphere);
             
-            std::cout << "Loaded sphere at (" << centerX << ", " << centerY << ", " << centerZ 
-                      << ") with radius " << radius << std::endl;
+            cout << "Loaded sphere at (" << centerX << ", " << centerY << ", " << centerZ 
+                      << ") with radius " << radius << endl;
         }
         else if (objectType == "triangle")
         {
@@ -200,9 +201,9 @@ void loadData()
             triangle->setShine(shininess);
             objects.push_back(triangle);
             
-            std::cout << "Loaded triangle with vertices (" << x1 << "," << y1 << "," << z1 
+            cout << "Loaded triangle with vertices (" << x1 << "," << y1 << "," << z1 
                       << "), (" << x2 << "," << y2 << "," << z2 
-                      << "), (" << x3 << "," << y3 << "," << z3 << ")" << std::endl;
+                      << "), (" << x3 << "," << y3 << "," << z3 << ")" << endl;
         }
         else if (objectType == "general")
         {
@@ -231,8 +232,8 @@ void loadData()
             quadric->setShine(shininess);
             objects.push_back(quadric);
             
-            std::cout << "Loaded general quadric at (" << refX << "," << refY << "," << refZ 
-                      << ") with dimensions " << length << "x" << width << "x" << height << std::endl;
+            cout << "Loaded general quadric at (" << refX << "," << refY << "," << refZ 
+                      << ") with dimensions " << length << "x" << width << "x" << height << endl;
         }
     }
 
@@ -241,13 +242,13 @@ void loadData()
     double floorWidth = 1000.0;
     double tileWidth = 20.0;
     
-    std::cout << "Creating floor with width " << floorWidth << " and tile size " << tileWidth << std::endl;
+    cout << "Creating floor with width " << floorWidth << " and tile size " << tileWidth << endl;
     
     // Add floor (as mentioned in the scene description)
     Floor *floor = new Floor(floorWidth, tileWidth, false); // Start with checkerboard mode
     objects.push_back(floor);
     
-    std::cout << "Floor created with checkerboard pattern. Use 't' key to toggle texture mode." << std::endl;
+    cout << "Floor created with checkerboard pattern. Use 't' key to toggle texture mode." << endl;
 
     // Load point lights
     int numPointLights;
@@ -268,8 +269,8 @@ void loadData()
         PointLight *light = new PointLight(Vector3D(x, y, z), r, g, b);
         pointLights.push_back(light);
         
-        std::cout << "Loaded point light at (" << x << ", " << y << ", " << z 
-                  << ") with color (" << r << ", " << g << ", " << b << ")" << std::endl;
+        cout << "Loaded point light at (" << x << ", " << y << ", " << z 
+                  << ") with color (" << r << ", " << g << ", " << b << ")" << endl;
     }
 
     // Load spot lights
@@ -302,9 +303,9 @@ void loadData()
                                            colorR, colorG, colorB);
         spotLights.push_back(spotlight);
         
-        std::cout << "Loaded spotlight at (" << posX << ", " << posY << ", " << posZ 
+        cout << "Loaded spotlight at (" << posX << ", " << posY << ", " << posZ 
                   << ") pointing (" << dirX << ", " << dirY << ", " << dirZ 
-                  << ") with cutoff " << cutoffAngle << std::endl;
+                  << ") with cutoff " << cutoffAngle << endl;
     }
 
     file.close();
@@ -317,7 +318,7 @@ void loadData()
 void switchTexture(const char* filename)
 {
     if (TextureManager::loadTexture(filename)) {
-        std::cout << "Switched to texture: " << filename << std::endl;
+        cout << "Switched to texture: " << filename << endl;
         // Enable texture mode on all floors
         for (Object *obj : objects) {
             Floor *floor = dynamic_cast<Floor*>(obj);
@@ -326,7 +327,7 @@ void switchTexture(const char* filename)
             }
         }
     } else {
-        std::cout << "Failed to load texture: " << filename << std::endl;
+        cout << "Failed to load texture: " << filename << endl;
     }
 }
 
@@ -357,6 +358,7 @@ void capture()
     Vector3D up(upx, upy, upz);
     
     // Calculate view direction and orthonormal basis
+    // use the equations from the rasterization offline to this
     Vector3D l = lookAt - eye;
     l.normalize();
     Vector3D r = l.cross(up);
@@ -378,9 +380,9 @@ void capture()
     // Choose middle of the grid cell
     topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv); // adjust to center pixel
     
-    std::cout << "Capturing image " << captureCount << "..." << std::endl;
+    cout << "Capturing image " << captureCount << "..." << endl;
     
-    // Ray tracing loop
+    // Ray tracing loop because we have to shoot a ray from the camera point to every pixel's middle point
     for (int i = 0; i < imageWidth; i++)
     {
         for (int j = 0; j < imageHeight; j++)
@@ -392,7 +394,7 @@ void capture()
             Vector3D rayDirection = curPixel - eye;
             Ray ray(eye, rayDirection);
             
-            double tMin = std::numeric_limits<double>::max();
+            double tMin = numeric_limits<double>::max();
             Object *nearestObject = nullptr;
             double dummyColor[3] = {0, 0, 0};
             
@@ -416,13 +418,13 @@ void capture()
                 // Reset color for object intersection
                 color[0] = color[1] = color[2] = 0.0;
                 // Get actual color from the nearest object
-                double t_min = nearestObject->intersect(ray, color, 1);
+                double t_min = nearestObject->intersect(ray, color, 1); // we are setting level 1, because currently the recursion level is 1
             }
             
             // Clamp color values to [0, 1] range
             for (int k = 0; k < 3; k++)
             {
-                color[k] = std::min(1.0, std::max(0.0, color[k]));
+                color[k] = min(1.0, max(0.0, color[k]));
             }
             
             // Update image pixel (i,j)
@@ -435,10 +437,10 @@ void capture()
         }
     }
     
-    // Save image with naming convention: Output_11.bmp, Output_12.bmp, etc.
-    std::string filename = "Output_" + std::to_string(captureCount++) + ".bmp";
+    // we now saving the images with naming convention: Output_11.bmp, Output_12.bmp, etc.
+    string filename = "Output_" + to_string(captureCount++) + ".bmp";
     image.save_image(filename);
-    std::cout << "Image saved as " << filename << std::endl;
+    cout << "Image saved as " << filename << endl;
 }
 
 /**
@@ -562,9 +564,9 @@ void keyboard(unsigned char key, int x, int y)
             if (floor) {
                 bool currentMode = floor->useTexture;
                 floor->setTextureMode(!currentMode);
-                std::cout << "Floor texture mode: " << (floor->useTexture ? "ON (texture)" : "OFF (checkerboard)") << std::endl;
+                cout << "Floor texture mode: " << (floor->useTexture ? "ON (texture)" : "OFF (checkerboard)") << endl;
                 if (floor->useTexture && !TextureManager::textureLoaded) {
-                    std::cout << "Warning: Texture mode enabled but no texture loaded!" << std::endl;
+                    cout << "Warning: Texture mode enabled but no texture loaded!" << endl;
                 }
                 break; // Only toggle the first floor found
             }
@@ -1024,29 +1026,29 @@ int main(int argc, char **argv)
     initGL();
     
     // Print keyboard instructions
-    std::cout << "\n=== RAY TRACER CONTROLS ===" << std::endl;
-    std::cout << "Camera Movement:" << std::endl;
-    std::cout << "  Arrow keys: Move forward/back/left/right" << std::endl;
-    std::cout << "  Page Up/Down: Move up/down" << std::endl;
-    std::cout << "  1/2: Rotate look-at point left/right" << std::endl;
-    std::cout << "  3/4: Rotate camera up/down" << std::endl;
-    std::cout << "  5/6: Tilt camera" << std::endl;
-    std::cout << "  w/s: Move camera up/down" << std::endl;
-    std::cout << "Rendering:" << std::endl;
-    std::cout << "  0: Capture ray-traced image" << std::endl;
-    std::cout << "  t/T: Toggle floor texture (checkerboard/texture)" << std::endl;
-    std::cout << "  a: Toggle coordinate axes" << std::endl;
-    std::cout << "  ESC: Exit" << std::endl;
-    std::cout << "========================\n" << std::endl;
+    cout << "\n=== RAY TRACER CONTROLS ===" << endl;
+    cout << "Camera Movement:" << endl;
+    cout << "  Arrow keys: Move forward/back/left/right" << endl;
+    cout << "  Page Up/Down: Move up/down" << endl;
+    cout << "  1/2: Rotate look-at point left/right" << endl;
+    cout << "  3/4: Rotate camera up/down" << endl;
+    cout << "  5/6: Tilt camera" << endl;
+    cout << "  w/s: Move camera up/down" << endl;
+    cout << "Rendering:" << endl;
+    cout << "  0: Capture ray-traced image" << endl;
+    cout << "  t/T: Toggle floor texture (checkerboard/texture)" << endl;
+    cout << "  a: Toggle coordinate axes" << endl;
+    cout << "  ESC: Exit" << endl;
+    cout << "========================\n" << endl;
 
     // Load the scene from the file
     loadData();
     
     // Try to load texture (optional)
     if (TextureManager::loadTexture(textureFileName)) {
-        std::cout << "Texture loaded successfully. Press 't' to toggle between checkerboard and texture." << std::endl;
+        cout << "Texture loaded successfully. Press 't' to toggle between checkerboard and texture." << endl;
     } else {
-        std::cout << "Texture not found or failed to load. Using checkerboard pattern only." << std::endl;
+        cout << "Texture not found or failed to load. Using checkerboard pattern only." << endl;
     }
 
     glutDisplayFunc(display);

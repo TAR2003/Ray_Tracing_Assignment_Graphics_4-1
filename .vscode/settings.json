@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "offline_1_camera_settings": "cpp"
+        "offline_1_camera_settings": "cpp",
+        "cmath": "cpp"
     }
 }
