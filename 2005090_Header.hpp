@@ -327,6 +327,14 @@ public:
         colorAt[2] = color[2];
     }
 
+    /// @brief Calculate the intersection point color, this is used by all of the child classes of this object, it is only called when we can successfully determine the intersection point of the ray with the object
+    /// @param r The ray being traced
+    /// @param color The color at the intersection point
+    /// @param level The recursion level
+    /// @param intersectionPoint The point of intersection
+    /// @param t The distance to the intersection point
+    /// @param normal The normal at the intersection point
+    /// @return The color at the intersection point
     double intersectPoint(const Ray &r, double *color, int level, Vector3D intersectionPoint, double t, Vector3D normal) const
     {
         // Get color at intersection point
