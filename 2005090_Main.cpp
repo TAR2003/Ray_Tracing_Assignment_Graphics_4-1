@@ -1,28 +1,3 @@
-/**
- * Ray Tracing Assignment - Complete Implementation
- * 
- * A unified ray tracing application with OpenGL visualization.
- * Features:
- * - Scene loading from file with support for spheres, triangles, quadrics
- * - Real-time camera movement and controls
- * - Ray tracing with Phong illumination, shadows, and reflections
- * - Texture mapping for floors with toggle functionality
- * - Integrated camera system with comprehensive movement controls
- * - OpenGL visualization of objects and lights
- * 
- * Controls:
- * - Arrow keys: Move forward/back/left/right
- * - Page Up/Down: Move up/down
- * - 1/2: Rotate look-at point left/right
- * - 3/4: Rotate camera up/down
- * - 5/6: Tilt camera
- * - w/s: Move camera up/down
- * - 0: Capture ray-traced image
- * - t/T: Toggle floor texture (checkerboard/texture)
- * - a: Toggle coordinate axes
- * - ESC: Exit
- */
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -48,17 +23,7 @@ using namespace std;
 #define M_PI 3.14159265358979323846
 
 const char* textureFileName = "texture2.bmp"; // Default texture file name
-
-/*
- * TEXTURE MAPPING FEATURE:
- * - Press 't' or 'T' to toggle between checkerboard and texture modes for the floor
- * - The system loads "texture_1.bmp" by default
- * - To use different textures, call switchTexture("filename.bmp") 
- * - Supports common image formats (BMP, PNG, JPG, TGA, etc.)
- * - Texture coordinates are automatically mapped from world coordinates
- * - Falls back to checkerboard pattern if texture loading fails
- * - Texture repeats 10 times across the floor for better detail
- */
+const char* scene = "scene.txt"; // Default scene file name
 
 // Global variables
 vector<Object *> objects;
@@ -98,10 +63,6 @@ int windowHeight = 720;
 double worldWidth = 2.0;
 double worldHeight = 2.0;
 
-/**
- * Initialize OpenGL settings
- * Sets up background color and enables depth testing
- */
 void initGL()
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -117,7 +78,7 @@ void initGL()
 // Scene loading function from the scene.txt file
 void loadData()
 {
-    ifstream file("scene.txt");
+    ifstream file(scene);
     if (!file.is_open())
     {
         cerr << "Error: Could not open scene.txt file!" << endl;
@@ -311,10 +272,8 @@ void loadData()
     file.close();
 }
 
-/**
- * Switches the floor texture to a new image file
- * @param filename The name of the texture file to load
- */
+/// Switches the floor texture to a new image file
+/// @param filename The name of the texture file to load
 void switchTexture(const char* filename)
 {
     if (TextureManager::loadTexture(filename)) {
@@ -443,10 +402,7 @@ void capture()
     cout << "Image saved as " << filename << endl;
 }
 
-/**
- * Draw coordinate axes
- * X axis: red, Y axis: green, Z axis: blue
- */
+
 void drawAxes()
 {
     glLineWidth(3); // Set line thickness
@@ -517,10 +473,6 @@ void reshape(int width, int height)
     initGL();
 }
 
-/**
- * Window reshape callback from camera settings
- * Handles window resizing and maintains aspect ratio
- */
 void reshapeListener(GLsizei width, GLsizei height)
 {
     // Prevent division by zero
@@ -851,10 +803,7 @@ void keyboard(unsigned char key, int x, int y)
     glutPostRedisplay();
 }
 
-/**
- * Special key input handler (arrow keys, function keys)
- * Provides camera orbit functionality
- */
+
 void specialKeyListener(int key, int x, int y)
 {
     // Calculate view direction vector
@@ -1034,12 +983,12 @@ int main(int argc, char **argv)
     cout << "  3/4: Rotate camera up/down" << endl;
     cout << "  5/6: Tilt camera" << endl;
     cout << "  w/s: Move camera up/down" << endl;
-    cout << "Rendering:" << endl;
+    cout << "Rendering....................................." << endl;
     cout << "  0: Capture ray-traced image" << endl;
     cout << "  t/T: Toggle floor texture (checkerboard/texture)" << endl;
     cout << "  a: Toggle coordinate axes" << endl;
     cout << "  ESC: Exit" << endl;
-    cout << "========================\n" << endl;
+    cout << "===============================================\n" << endl;
 
     // Load the scene from the file
     loadData();
