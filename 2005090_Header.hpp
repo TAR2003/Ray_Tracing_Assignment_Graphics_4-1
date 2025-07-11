@@ -1310,8 +1310,65 @@ public:
         }
 
         // Process each spot light (similar to point lights but with angle check)
-        // ... (existing spotlight code with same lighting modifications as point lights)
+        // Process each spot light
+        for (SpotLight *sl : spotLights)
+        {
+            // Check if intersection point is within spotlight cone
+            // Cast ray from spotlight to intersection point
+            Vector3D lightToPoint = intersectionPoint - sl->position;
+            double lightDistance = lightToPoint.length();
+            lightToPoint.normalize();
 
+            // Check if point is within spotlight cone
+            double angle = acos(lightToPoint.dot(sl->direction));
+            if (angle <= sl->cutoffAngle)
+            {
+                // the angle is less or equal to the cutoff angle, so we will proceed with the spotlight
+                // Create ray from spotlight to intersection point
+                Ray lightRay(sl->position, lightToPoint);
+
+                // Check shadow
+                bool inShadow = false;
+                for (Object *obj : objects)
+                {
+                    // we now check all objects in the scene to see if any of them is between the spotlight and the intersection point
+                    // if so, then the intersection point is shadowed
+                    if (obj != this) // Don't check self-intersection
+                    {
+                        double shadowT = obj->intersect(lightRay, nullptr, 0);
+                        if (shadowT > 0.001 && shadowT < lightDistance - 0.001)
+                        {
+                            inShadow = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!inShadow)
+                {
+                    // Calculate diffuse component Lambert
+                    // represents how much light hits the surface based on its angle to the light source
+                    Vector3D toLight = sl->position - intersectionPoint;
+                    toLight.normalize();
+                    double lambertValue = max(0.0, normal.dot(toLight));
+
+                    // Calculate specular component using Phong reflection model
+                    // represents the shiny highlight on the surface based on the angle to the light source and viewer
+                    Vector3D reflected = normal * (2.0 * normal.dot(toLight)) - toLight;
+                    reflected.normalize();
+                    Vector3D toCamera = r.start - intersectionPoint;
+                    toCamera.normalize();
+                    double phongValue = max(0.0, reflected.dot(toCamera));
+                    phongValue = pow(phongValue, shine);
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        color[i] += sl->color[i] * coefficients[1] * lambertValue * intersectionPointColor[i];
+                        color[i] += sl->color[i] * coefficients[2] * phongValue; // specular for Triangle spotlights
+                    }
+                }
+            }
+        }
         // Handle reflection
         if (level < maxRecursionLevel && coefficients[3] > 0)
         {
