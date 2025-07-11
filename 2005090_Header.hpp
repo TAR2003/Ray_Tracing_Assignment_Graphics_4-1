@@ -816,10 +816,13 @@ public:
     void draw() override
     {
         // Simple visualization - draw a wireframe representation
+        // The wireframe should represent the actual bounding box of the object
         glPushMatrix();
         glColor3f(color[0], color[1], color[2]);
         glTranslatef(reference_point.x, reference_point.y, reference_point.z);
-        glutWireCube(2.0);
+        // Use the actual dimensions for the wireframe
+        glScalef(length > 0 ? length : 2.0, width > 0 ? width : 2.0, height > 0 ? height : 2.0);
+        glutWireCube(1.0);
         glPopMatrix();
     }
 

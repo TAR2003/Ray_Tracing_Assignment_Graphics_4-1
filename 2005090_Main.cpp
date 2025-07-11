@@ -184,7 +184,8 @@ void loadData()
             // GeneralQuadric is a class that represents a quadric surface defined by the coefficients A, B, C, D, E, F, G, H, I, J
             // and the reference point (refX, refY, refZ) with dimensions (
             GeneralQuadric *quadric = new GeneralQuadric(A, B, C, D, E, F, G, H, I, J);
-            quadric->reference_point = Vector3D(refX, refY, refZ);
+            // Adjust reference point so that the bottom of the object is at refZ, not the center
+            quadric->reference_point = Vector3D(refX, refY, refZ + height/2);
             quadric->length = length;
             quadric->width = width;
             quadric->height = height;
@@ -193,7 +194,7 @@ void loadData()
             quadric->setShine(shininess);
             objects.push_back(quadric);
             
-            cout << "Loaded general quadric at (" << refX << "," << refY << "," << refZ 
+            cout << "Loaded general quadric with bottom at (" << refX << "," << refY << "," << refZ 
                       << ") with dimensions " << length << "x" << width << "x" << height << endl;
         }
     }
